@@ -29,7 +29,7 @@ client = OpenAI(
 )
 
 # 锁定谷歌最新第 3 代闪电模型
-VISION_MODEL = "gemini-1.5-flash"
+VISION_MODEL = "gemini-3-flash-preview"
 
 st.title("🎓 Web Tutor Plus (官方直连极速版)")
 
