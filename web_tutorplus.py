@@ -32,7 +32,7 @@ client = OpenAI(
 )
 
 # 定义多模态模型
-VISION_MODEL = "gemini-1.5-pro"#gemini-1.5-flash gpt-4o-mini
+VISION_MODEL = "qwen-vl-max"#gemini-1.5-flash gpt-4o-mini gemini-1.5-pro
 IMAGE_GEN_MODEL = "dall-e-3"
 
 st.title("🎓 Web Tutor Plus (视觉与画图版)")
