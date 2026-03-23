@@ -30,7 +30,7 @@ client = OpenAI(
 )
 
 # 锁定谷歌最强视觉模型
-VISION_MODEL = "gemini-1.5-flash"
+VISION_MODEL = "gemini-3-flash"
 
 st.title("🎓 Web Tutor Plus (官方直连极速版)")
 
