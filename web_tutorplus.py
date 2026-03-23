@@ -30,11 +30,7 @@ if not api_key or api_key.startswith("这里填入"):
 # os.environ["OPENAI_API_KEY"] = api_key
 
 # 初始化标准的 OpenAI 客户端（不再使用 DeepSeek base_url）
-client = OpenAI(
-    api_key=api_key,
-    base_url=
-"https://api.bltcy.ai/v1"
-)
+client = OpenAI(api_key=api_key)
 
 # 定义我们使用的最先进的多模态模型
 VISION_MODEL = "gpt-4o"
