@@ -1,41 +1,38 @@
 import os
 import base64
-import io
 import datetime
 import streamlit as st
 from openai import OpenAI
-from PIL import Image
 import PyPDF2
 import docx
 import pptx
 import streamlit.components.v1 as components
 
 # 设置页面宽屏显示
-st.set_page_config(page_title="Web Tutor Plus", page_icon="🎓", layout="wide")
+st.set_page_config(page_title="Web Tutor Plus (直连版)", page_icon="🎓", layout="wide")
 
-# ==================== 1. 安全获取 API 密钥与初始化 ====================
+# ==================== 1. 官方原生直连配置 ====================
 try:
-    # 优先尝试从 Streamlit 云端的机密设置中读取
-    api_key = st.secrets["OPENAI_API_KEY"]
+    # ⚠️ 请注意：这里的秘钥名字换成了 GEMINI_API_KEY
+    api_key = st.secrets["GEMINI_API_KEY"]
 except:
     # 本地测试防报错备用
-    api_key = "sk-..."
+    api_key = "AIza..." 
 
-if not api_key or api_key == "sk-...":
-    st.error("⚠️ 未检测到有效的 API 密钥，请在 Streamlit 后台的 Secrets 中配置 OPENAI_API_KEY。")
+if not api_key or api_key.startswith("AIza..."):
+    st.error("⚠️ 未检测到有效的 API 密钥，请在 Streamlit 后台的 Secrets 中配置 GEMINI_API_KEY。")
     st.stop()
 
-# 🚀 已经为你配置好了中转平台的请求地址！
+# 🚀 使用 OpenAI SDK 完美兼容调用 Google 官方接口！
 client = OpenAI(
     api_key=api_key,
-    base_url="https://api.bltcy.ai/v1"
+    base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
 )
 
-# 定义多模态模型
-VISION_MODEL = "qwen-vl-max"#gemini-1.5-flash gpt-4o-mini gemini-1.5-pro
-IMAGE_GEN_MODEL = "dall-e-3"
+# 锁定谷歌最强视觉模型
+VISION_MODEL = "gemini-1.5-pro"
 
-st.title("🎓 Web Tutor Plus (视觉与画图版)")
+st.title("🎓 Web Tutor Plus (官方直连极速版)")
 
 @st.cache_resource
 def get_current_time():
@@ -44,7 +41,7 @@ def get_current_time():
 # ==================== 2. 全面升级的系统提示词 ====================
 system_instruction = f"""
 1. 角色与目标
-你是一位顶级的多模态教育心理学专家。你的核心目标是执行“无限期引导式学习”，严禁直接向用户灌输最终结论。你现在可以看见图片，也可以让系统生成图片。
+你是一位顶级的教育心理学专家。你的核心目标是执行“无限期引导式学习”，严禁直接向用户灌输最终结论。你现在具备顶级的视觉能力，可以看懂最复杂的数学公式、物理受力图和工程代码。
 
 2. 核心规矩（最高优先级 - 绝对防线）
 - 🚫 强制两轮底线：在用户针对你的引导提问进行至少两轮实质性的思考与回复之前，如果用户企图走捷径（如输入“给出答案”、“不想猜”、“直接告诉我”等），你绝对禁止给出答案！你必须温和但坚定地拒绝，并把话题拉回。
@@ -53,18 +50,13 @@ system_instruction = f"""
 - 终极指令：只有当用户明确输入“结束本次学习”时，你才进行总结，并正式宣布指导结束。
 
 3. 图片理解规则 (Vision)
-- 如果用户上传了图片（例如物理受力分析图、电路图、复杂公式截图），你必须优先、仔细地阅读并分析图片内容。
-- 在后续的引导和提问中，要紧密结合图片中的细节（如箭头的方向、数值、组件名称）。
+- 如果用户上传了图片（例如常微分方程推导截图、经典力学非惯性系受力图、CNC加工图纸等），你必须优先、极其仔细地阅读并分析图片内容。
+- 在后续的引导和提问中，要紧密结合图片中的细节（如特定的变量符号、受力方向、微积分上下限）。
 
-4. 图片生成规则 (Image Gen)
-- 💡 助记策略：当某个概念极其抽象、复杂，且通过图解或直观插图能极大降低用户理解难度时（例如：讲解单摆的能量守恒、电磁感应的右手定则、高等数学的曲面积分截面），你应当主动提出：“这个概念有点抽象，我想为你生成一张直观的图解来辅助你理解，你愿意吗？”。
-- 只有当用户回复“愿意”或“好的”或主动要求画图时，你才调用系统的图片生成功能。
-- 在给出完整答案后，如果你认为某一步骤需要图解辅助复习，也可以生成一张图片包含在答案中。
-
-5. 文档资料库规则
+4. 文档资料库规则
 - 如果用户上传了文档，仔细阅读并在提问中结合资料核心概念。
 
-6. 输出格式与约束
+5. 输出格式与约束
 - 数学公式：美元符号：行内 `$ $`，独立块双美元 `$$ $$`。
 """
 
@@ -104,22 +96,6 @@ def extract_text_from_file(uploaded_file):
         return f"读取文件失败: {e}"
     return text
 
-def generate_educational_image(prompt):
-    with st.spinner('导师正在运用图像生成API为您绘制教学图解，请稍候...'):
-        try:
-            final_prompt = f"A clear, scientific and educational diagram illustrating the concept of: {prompt}. Minimal text, focus on clear visuals and annotations, bright colors, textbook style."
-            response = client.images.generate(
-                model=IMAGE_GEN_MODEL,
-                prompt=final_prompt,
-                n=1,
-                size="1024x1024"
-            )
-            image_url = response.data[0].url
-            return image_url
-        except Exception as e:
-            st.error(f"图片生成失败: {e}")
-            return None
-
 def start_new_chat():
     if len(st.session_state.messages) > 1:
         title = "新学习主题"
@@ -151,10 +127,10 @@ with st.sidebar:
     st.header("🛠️ 学习资料库")
     
     st.subheader("🖼️ 上传图片理解")
-    uploaded_image = st.file_uploader("上传物理、电路、公式截图", type=["png", "jpg", "jpeg"])
+    uploaded_image = st.file_uploader("上传公式、受力图、代码截图", type=["png", "jpg", "jpeg"])
     if uploaded_image is not None:
         if st.session_state.viewing_past is None:
-            with st.spinner('正在分析图片...'):
+            with st.spinner('正在使用 Gemini 1.5 Pro 分析图片...'):
                 base64_image = encode_image(uploaded_image)
                 already_uploaded = False
                 for msg in st.session_state.messages:
@@ -179,7 +155,7 @@ with st.sidebar:
                         ],
                         "metadata": {"file_name": uploaded_image.name}
                     })
-                    st.success(f"成功分析：{uploaded_image.name}！您可以继续向导师提问。")
+                    st.success(f"成功分析：{uploaded_image.name}！")
 
     st.divider()
     
@@ -230,96 +206,59 @@ with st.sidebar:
         components.html(pdf_button_html, height=50)
 
 # ==================== 4. 主界面 UI ====================
-main_col, img_gen_col = st.columns([2, 1])
+display_messages = st.session_state.messages
+if st.session_state.viewing_past is not None:
+    display_messages = st.session_state.history[st.session_state.viewing_past]["messages"]
 
-with main_col:
-    display_messages = st.session_state.messages
-    if st.session_state.viewing_past is not None:
-        display_messages = st.session_state.history[st.session_state.viewing_past]["messages"]
+for msg in display_messages:
+    if msg["role"] == "system": continue
 
-    for msg in display_messages:
-        if msg["role"] == "system": continue
-
-        with st.chat_message(msg["role"]):
-            if isinstance(msg["content"], list):
-                text_content = ""
-                for item in msg["content"]:
-                    if item["type"] == "text":
-                        if item["text"].startswith("[系统提示：") or item["text"].startswith("[用户上传并分析了图片："): continue
-                        text_content += item["text"]
-                    elif item["type"] == "image_url":
-                        st.image(item["image_url"]["url"], caption="您上传的图片资料", width=300)
-                    elif item["type"] == "generated_image_url":
-                        st.image(item["generated_image_url"]["url"], caption="导师生成的教学图解", use_container_width=True)
-                
-                if text_content:
-                    st.markdown(text_content)
-            else:
-                if not msg["content"].startswith("[系统提示："):
-                    st.markdown(msg["content"])
+    with st.chat_message(msg["role"]):
+        if isinstance(msg["content"], list):
+            text_content = ""
+            for item in msg["content"]:
+                if item["type"] == "text":
+                    if item["text"].startswith("[系统提示：") or item["text"].startswith("[用户上传并分析了图片："): continue
+                    text_content += item["text"]
+                elif item["type"] == "image_url":
+                    st.image(item["image_url"]["url"], caption="您上传的图片资料", width=400)
+            
+            if text_content:
+                st.markdown(text_content)
+        else:
+            if not msg["content"].startswith("[系统提示："):
+                st.markdown(msg["content"])
 
 # 聊天输入与逻辑处理
 if st.session_state.viewing_past is None:
-    if prompt := st.chat_input("向导师提问，输入'结束本次学习'，或输入'我愿意'生成图片..."):
-        with main_col:
-            with st.chat_message("user"):
-                st.markdown(prompt)
+    if prompt := st.chat_input("向导师提问，或输入'结束本次学习'以归档..."):
+        with st.chat_message("user"):
+            st.markdown(prompt)
         st.session_state.messages.append({"role": "user", "content": prompt})
 
-        with main_col:
-            with st.chat_message("assistant"):
-                message_placeholder = st.empty()
-                full_response = ""
+        with st.chat_message("assistant"):
+            message_placeholder = st.empty()
+            full_response = ""
+            
+            try:
+                responses = client.chat.completions.create(
+                    model=VISION_MODEL,
+                    messages=st.session_state.messages,
+                    stream=True,
+                    temperature=0.7
+                )
                 
-                try:
-                    responses = client.chat.completions.create(
-                        model=VISION_MODEL,
-                        messages=st.session_state.messages,
-                        stream=True,
-                        temperature=0.7
-                    )
-                    
-                    for chunk in responses:
-                        # 🚀 这里的防空包安全检查已经完美加好！
-                        if hasattr(chunk, 'choices') and chunk.choices and len(chunk.choices) > 0:
-                            if chunk.choices[0].delta.content is not None:
-                                full_response += chunk.choices[0].delta.content
-                                message_placeholder.markdown(full_response + "▌")
-                                
-                except Exception as e:
-                    st.error(f"请求出错: {e}")
-                    
-                message_placeholder.markdown(full_response)
+                for chunk in responses:
+                    if hasattr(chunk, 'choices') and chunk.choices and len(chunk.choices) > 0:
+                        if chunk.choices[0].delta.content is not None:
+                            full_response += chunk.choices[0].delta.content
+                            message_placeholder.markdown(full_response + "▌")
+                            
+            except Exception as e:
+                st.error(f"请求出错 (请检查密钥或网络): {e}")
                 
-                generated_image_info = None
-                needs_image_gen = False
-                
-                if "愿意" in prompt and len(st.session_state.messages) > 3 and "我愿意" in prompt:
-                    needs_image_gen = True
-                elif "对于以上推导" in full_response and len(st.session_state.messages) > 3 and "我想为你生成一张直观的图解" in st.session_state.messages[-3]["content"]:
-                    needs_image_gen = True
-
-                if needs_image_gen:
-                    title = "教学插图"
-                    for m in reversed(st.session_state.messages[:-1]):
-                        if m["role"] == "user":
-                            title = m["content"][:20] + "..."
-                            break
-                    
-                    img_url = generate_educational_image(f"Educational illustration for the concept of: {title}")
-                    if img_url:
-                        generated_image_info = {"type": "generated_image_url", "generated_image_url": {"url": img_url}}
-                        img_gen_col.image(img_url, caption=f"为您的复习生成的：{title}", use_container_width=True)
-
-                assistant_payload_content = [{"type": "text", "text": full_response}]
-                if generated_image_info:
-                    assistant_payload_content.append(generated_image_info)
-                
-                st.session_state.messages.append({"role": "assistant", "content": assistant_payload_content})
+            message_placeholder.markdown(full_response)
+            st.session_state.messages.append({"role": "assistant", "content": full_response})
 
 else:
-    with main_col:
-        st.warning("🔒 历史记录属于只读模式。若要继续学习，请点击左侧栏的【🔙 返回当前学习进度】或【➕ 开启新一轮学习】。")
-
-with img_gen_col:
-    st.caption("🖼️ 导师生成的直观图解将在这里显示以助于理解。")
+    st.warning("🔒 历史记录属于只读模式。若要继续学习，请点击左侧栏的【🔙 返回当前学习进度】或【➕ 开启新一轮学习】。")
