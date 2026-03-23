@@ -9,11 +9,10 @@ import pptx
 import streamlit.components.v1 as components
 
 # 设置页面宽屏显示
-st.set_page_config(page_title="Web Tutor Plus (直连版)", page_icon="🎓", layout="wide")
+st.set_page_config(page_title="Web Tutor Plus (官方直连版)", page_icon="🎓", layout="wide")
 
 # ==================== 1. 官方原生直连配置 ====================
 try:
-    # ⚠️ 请注意：这里的秘钥名字换成了 GEMINI_API_KEY
     api_key = st.secrets["GEMINI_API_KEY"]
 except:
     # 本地测试防报错备用
@@ -29,7 +28,7 @@ client = OpenAI(
     base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
 )
 
-# 锁定谷歌最强视觉模型
+# 锁定谷歌最新第 3 代闪电模型
 VISION_MODEL = "gemini-3-flash"
 
 st.title("🎓 Web Tutor Plus (官方直连极速版)")
@@ -130,7 +129,7 @@ with st.sidebar:
     uploaded_image = st.file_uploader("上传公式、受力图、代码截图", type=["png", "jpg", "jpeg"])
     if uploaded_image is not None:
         if st.session_state.viewing_past is None:
-            with st.spinner('正在使用 Gemini 1.5 Pro 分析图片...'):
+            with st.spinner('正在使用 Gemini 3 Flash 分析图片...'):
                 base64_image = encode_image(uploaded_image)
                 already_uploaded = False
                 for msg in st.session_state.messages:
@@ -249,9 +248,11 @@ if st.session_state.viewing_past is None:
                 )
                 
                 for chunk in responses:
+                    # 🛡️ 终极护盾：完美拦截空数据包，防止打字机结尾闪退
                     if hasattr(chunk, 'choices') and chunk.choices and len(chunk.choices) > 0:
-                        if chunk.choices[0].delta.content is not None:
-                            full_response += chunk.choices[0].delta.content
+                        content = getattr(chunk.choices[0].delta, 'content', None)
+                        if content is not None:
+                            full_response += content
                             message_placeholder.markdown(full_response + "▌")
                             
             except Exception as e:
