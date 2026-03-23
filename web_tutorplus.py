@@ -258,28 +258,37 @@ with main_col:
                 if not msg["content"].startswith("[系统提示："):
                     st.markdown(msg["content"])
 
-    if st.session_state.viewing_past is None:
-        if prompt := st.chat_input("向导师提问，输入'结束本次学习'，或输入'我愿意'生成图片..."):
+# 聊天输入与逻辑处理
+if st.session_state.viewing_past is None:
+    if prompt := st.chat_input("向导师提问，输入'结束本次学习'，或输入'我愿意'生成图片..."):
+        with main_col:
             with st.chat_message("user"):
                 st.markdown(prompt)
-            st.session_state.messages.append({"role": "user", "content": prompt})
+        st.session_state.messages.append({"role": "user", "content": prompt})
 
+        with main_col:
             with st.chat_message("assistant"):
                 message_placeholder = st.empty()
                 full_response = ""
                 
-                responses = client.chat.completions.create(
-                    model=VISION_MODEL,
-                    messages=st.session_state.messages,
-                    stream=True,
-                    temperature=0.7
-                )
-                
-                for chunk in responses:
-                    if chunk.choices[0].delta.content is not None:
-                        full_response += chunk.choices[0].delta.content
-                        message_placeholder.markdown(full_response + "▌")
-                
+                try:
+                    responses = client.chat.completions.create(
+                        model=VISION_MODEL,
+                        messages=st.session_state.messages,
+                        stream=True,
+                        temperature=0.7
+                    )
+                    
+                    for chunk in responses:
+                        # 🚀 这里的防空包安全检查已经完美加好！
+                        if hasattr(chunk, 'choices') and chunk.choices and len(chunk.choices) > 0:
+                            if chunk.choices[0].delta.content is not None:
+                                full_response += chunk.choices[0].delta.content
+                                message_placeholder.markdown(full_response + "▌")
+                                
+                except Exception as e:
+                    st.error(f"请求出错: {e}")
+                    
                 message_placeholder.markdown(full_response)
                 
                 generated_image_info = None
@@ -307,8 +316,10 @@ with main_col:
                     assistant_payload_content.append(generated_image_info)
                 
                 st.session_state.messages.append({"role": "assistant", "content": assistant_payload_content})
-    else:
+
+else:
+    with main_col:
         st.warning("🔒 历史记录属于只读模式。若要继续学习，请点击左侧栏的【🔙 返回当前学习进度】或【➕ 开启新一轮学习】。")
 
-if img_gen_col.empty():
-    img_gen_col.caption("🖼️ 导师生成的直观图解将在这里显示以助于理解。")
+with img_gen_col:
+    st.caption("🖼️ 导师生成的直观图解将在这里显示以助于理解。")
