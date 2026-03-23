@@ -15,7 +15,7 @@ st.set_page_config(page_title="Web Tutor Plus", page_icon="🎓", layout="wide")
 
 # ==================== 1. 安全获取 API 密钥与初始化 ====================
 try:
-    # 优先尝试从 Streamlit 云端的机密设置中读取 (你已经在后台配置好了)
+    # 优先尝试从 Streamlit 云端的机密设置中读取
     api_key = st.secrets["OPENAI_API_KEY"]
 except:
     # 本地测试防报错备用
@@ -25,7 +25,7 @@ if not api_key or api_key == "sk-...":
     st.error("⚠️ 未检测到有效的 API 密钥，请在 Streamlit 后台的 Secrets 中配置 OPENAI_API_KEY。")
     st.stop()
 
-# 🚀 已经为你配置好了柏拉图 API 中转平台的请求地址！
+# 🚀 已经为你配置好了中转平台的请求地址！
 client = OpenAI(
     api_key=api_key,
     base_url="https://api.bltcy.ai/v1"
@@ -307,9 +307,7 @@ with main_col:
                     assistant_payload_content.append(generated_image_info)
                 
                 st.session_state.messages.append({"role": "assistant", "content": assistant_payload_content})
-
-else:
-    with main_col:
+    else:
         st.warning("🔒 历史记录属于只读模式。若要继续学习，请点击左侧栏的【🔙 返回当前学习进度】或【➕ 开启新一轮学习】。")
 
 if img_gen_col.empty():
