@@ -42,11 +42,9 @@ IMAGE_GEN_MODEL = "dall-e-3"
 
 st.title("🎓 引导式智能学习助手 (视觉与画图版)")
 
-
 @st.cache_resource
 def get_current_time():
     return datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
-
 
 # ==================== 2. 全面升级的系统提示词 (加入多模态规则) ====================
 system_instruction = f"""
@@ -77,17 +75,15 @@ system_instruction = f"""
 
 # --- 状态初始化 (保持不变) ---
 if "history" not in st.session_state:
-    st.session_state.history = []
+    st.session_state.history = []  
 if "viewing_past" not in st.session_state:
-    st.session_state.viewing_past = None
+    st.session_state.viewing_past = None  
 if "messages" not in st.session_state:
     st.session_state.messages = [{"role": "system", "content": [{"type": "text", "text": system_instruction}]}]
-
 
 # --- 实用辅助函数 (文件处理和图片编码) ---
 def encode_image(image_file):
     return base64.b64encode(image_file.getvalue()).decode('utf-8')
-
 
 def extract_text_from_file(uploaded_file):
     # (原有功能，保持不变...)
@@ -114,7 +110,6 @@ def extract_text_from_file(uploaded_file):
         return f"读取文件失败: {e}"
     return text
 
-
 # --- 生成图片的辅助函数 ---
 def generate_educational_image(prompt):
     """调用 DALL-E 3 生成用于教学辅助的图片"""
@@ -134,7 +129,6 @@ def generate_educational_image(prompt):
             st.error(f"图片生成失败: {e}")
             return None
 
-
 # --- 开启新会话函数 (保持不变) ---
 def start_new_chat():
     if len(st.session_state.messages) > 1:
@@ -151,30 +145,29 @@ def start_new_chat():
                 else:
                     title = m["content"][:12] + "..."
                     break
-
+        
         st.session_state.history.append({
             "title": title,
             "messages": st.session_state.messages.copy()
         })
-
+    
     # 清空当前屏幕，发一张新白纸
     st.session_state.messages = [{"role": "system", "content": [{"type": "text", "text": system_instruction}]}]
     st.session_state.viewing_past = None
-
 
 # ==================== 3. 侧边栏 UI (全面升级) ====================
 with st.sidebar:
     st.button("➕ 开启新一轮学习", use_container_width=True, type="primary", on_click=start_new_chat)
 
     st.divider()
-
+    
     st.header("🛠️ 学习资料库")
-
+    
     # --- 新增功能：图片上传组件 ---
     st.subheader("🖼️ 上传图片理解")
     uploaded_image = st.file_uploader("上传物理、电路、公式截图", type=["png", "jpg", "jpeg"])
     if uploaded_image is not None:
-        if st.session_state.viewing_past is None:  # 只在当前学习模式下处理
+        if st.session_state.viewing_past is None: # 只在当前学习模式下处理
             with st.spinner('正在分析图片...'):
                 base64_image = encode_image(uploaded_image)
                 # 检查图片是否已存在于消息历史中 (防止重复上传)
@@ -182,19 +175,17 @@ with st.sidebar:
                 for msg in st.session_state.messages:
                     if msg["role"] == "user" and isinstance(msg["content"], list):
                         for item in msg["content"]:
-                            if item["type"] == "image_url" and uploaded_image.name in msg.get("metadata", {}).get(
-                                    "file_name", ""):
+                            if item["type"] == "image_url" and uploaded_image.name in msg.get("metadata", {}).get("file_name", ""):
                                 already_uploaded = True
                                 break
                     if already_uploaded: break
-
+                
                 if not already_uploaded:
                     # 将图片加入消息气泡 payload
                     st.session_state.messages.append({
                         "role": "user",
                         "content": [
-                            {"type": "text",
-                             "text": f"[用户上传并分析了图片：{uploaded_image.name}，请仔细查看图片内容并将其融入你的引导过程]"},
+                            {"type": "text", "text": f"[用户上传并分析了图片：{uploaded_image.name}，请仔细查看图片内容并将其融入你的引导过程]"},
                             {
                                 "type": "image_url",
                                 "image_url": {
@@ -207,23 +198,20 @@ with st.sidebar:
                     st.success(f"成功分析：{uploaded_image.name}！您可以继续向导师提问。")
 
     st.divider()
-
+    
     # --- 原有文档上传功能 ---
     st.subheader("📄 上传文档资料")
     uploaded_file = st.file_uploader("上传TXT/PDF/Word/PPT", type=["txt", "pdf", "docx", "pptx"])
     if uploaded_file is not None:
-        if st.session_state.viewing_past is None:  # 只在当前学习模式下处理
+        if st.session_state.viewing_past is None: # 只在当前学习模式下处理
             with st.spinner('正在读取文件内容...'):
                 file_content = extract_text_from_file(uploaded_file)
                 if "读取文件失败" not in file_content and file_content.strip() != "":
                     # 检查文档是否已存在 (防止重复上传)
-                    if not any(f"读取了资料：{uploaded_file.name}" in m["content"][0]["text"] if isinstance(
-                            m.get("content", []), list) else f"读取了资料：{uploaded_file.name}" in m.get("content", "")
-                               for m in st.session_state.messages):
+                    if not any(f"读取了资料：{uploaded_file.name}" in m["content"][0]["text"] if isinstance(m.get("content",[]), list) else f"读取了资料：{uploaded_file.name}" in m.get("content","") for m in st.session_state.messages):
                         st.session_state.messages.append({
-                            "role": "user",
-                            "content": [{"type": "text",
-                                         "text": f"[系统提示：用户刚上传并读取了资料：{uploaded_file.name}。以下是资料内容，请在后续对话中作为参考背景]\n\n{file_content}"}]
+                            "role": "user", 
+                            "content": [{"type": "text", "text": f"[系统提示：用户刚上传并读取了资料：{uploaded_file.name}。以下是资料内容，请在后续对话中作为参考背景]\n\n{file_content}"}]
                         })
                         st.success(f"成功读取：{uploaded_file.name}！")
                 else:
@@ -248,13 +236,12 @@ with st.sidebar:
             st.rerun()
 
     st.divider()
-
+    
     # --- 导出为 PDF 按钮 ---
     st.subheader("💾 导出为 PDF")
-
-    current_display_messages = st.session_state.messages if st.session_state.viewing_past is None else \
-    st.session_state.history[st.session_state.viewing_past]["messages"]
-
+    
+    current_display_messages = st.session_state.messages if st.session_state.viewing_past is None else st.session_state.history[st.session_state.viewing_past]["messages"]
+    
     if len(current_display_messages) > 1:
         pdf_button_html = """
         <button onclick="window.parent.print()" style="width: 100%; padding: 10px; background-color: #FF4B4B; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.3s;" onmouseover="this.style.backgroundColor='#FF6B6B'" onmouseout="this.style.backgroundColor='#FF4B4B'">
@@ -285,17 +272,15 @@ with main_col:
                 text_content = ""
                 for item in msg["content"]:
                     if item["type"] == "text":
-                        if item["text"].startswith("[系统提示：") or item["text"].startswith(
-                            "[用户上传并分析了图片："): continue
+                        if item["text"].startswith("[系统提示：") or item["text"].startswith("[用户上传并分析了图片："): continue
                         text_content += item["text"]
                     elif item["type"] == "image_url":
                         # 直接显示上传的本地图片
                         st.image(item["image_url"]["url"], caption="您上传的图片资料", width=300)
                     elif item["type"] == "generated_image_url":
                         # 显示系统生成的图片
-                        st.image(item["generated_image_url"]["url"], caption="导师生成的教学图解",
-                                 use_container_width=True)
-
+                        st.image(item["generated_image_url"]["url"], caption="导师生成的教学图解", use_container_width=True)
+                
                 if text_content:
                     st.markdown(text_content)
             else:
@@ -314,33 +299,31 @@ with main_col:
             with st.chat_message("assistant"):
                 message_placeholder = st.empty()
                 full_response = ""
-
+                
                 responses = client.chat.completions.create(
                     model=VISION_MODEL,
                     messages=st.session_state.messages,
                     stream=True,
                     temperature=0.7
                 )
-
+                
                 for chunk in responses:
                     if chunk.choices[0].delta.content is not None:
                         full_response += chunk.choices[0].delta.content
                         message_placeholder.markdown(full_response + "▌")
-
+                
                 message_placeholder.markdown(full_response)
-
+                
                 # --- 生成图片的自动化逻辑 ---
                 generated_image_info = None
                 # 检测用户意图和导师是否需要画图的建议
                 needs_image_gen = False
-
+                
                 # 情景1：用户同意画图
                 if "愿意" in prompt and len(st.session_state.messages) > 3 and "我愿意" in prompt:
                     needs_image_gen = True
                 # 情景2：导师给出了完整答案，且之前提到过想画图
-                elif "对于以上推导" in full_response and len(
-                        st.session_state.messages) > 3 and "我想为你生成一张直观的图解" in \
-                        st.session_state.messages[-3]["content"]:
+                elif "对于以上推导" in full_response and len(st.session_state.messages) > 3 and "我想为你生成一张直观的图解" in st.session_state.messages[-3]["content"]:
                     needs_image_gen = True
 
                 if needs_image_gen:
@@ -350,7 +333,7 @@ with main_col:
                         if m["role"] == "user":
                             title = m["content"][:20] + "..."
                             break
-
+                    
                     img_url = generate_educational_image(f"Educational illustration for the concept of: {title}")
                     if img_url:
                         generated_image_info = {"type": "generated_image_url", "generated_image_url": {"url": img_url}}
@@ -361,12 +344,12 @@ with main_col:
                 assistant_payload_content = [{"type": "text", "text": full_response}]
                 if generated_image_info:
                     assistant_payload_content.append(generated_image_info)
-
+                
                 st.session_state.messages.append({"role": "assistant", "content": assistant_payload_content})
 
 else:
-with main_col:
-    st.warning("🔒 历史记录属于只读模式。若要继续学习，请点击左侧栏的【🔙 返回当前学习进度】或【➕ 开启新一轮学习】。")
+    with main_col:
+        st.warning("🔒 历史记录属于只读模式。若要继续学习，请点击左侧栏的【🔙 返回当前学习进度】或【➕ 开启新一轮学习】。")
 
 # 如果右侧栏没有任何生成的图片，可以放一个简单的占位提示
 if img_gen_col.empty():
