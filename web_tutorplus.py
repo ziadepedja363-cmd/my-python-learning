@@ -29,7 +29,7 @@ client = OpenAI(
 )
 
 # 锁定谷歌最新第 3 代闪电模型
-VISION_MODEL = "gemini-3-flash-preview"
+VISION_MODEL = "gemini-2.5-flash"
 
 st.title("🎓 Web Tutor Plus (官方直连极速版)")
 
@@ -219,59 +219,53 @@ with st.sidebar:
 
             <script>
             function generatePDF() {
-                var btn = document.getElementById('pdf-btn');
-                // 改变按钮状态，给用户反馈
-                btn.innerText = '⏳ 正在排版笔记，请稍候...';
-                btn.style.backgroundColor = '#ff8b8b';
+            var btn = document.getElementById('pdf-btn');
+            btn.innerText = '⏳ 正在排版纯净笔记，请稍候...';
+            btn.style.backgroundColor = '#ff8b8b';
 
-                // 1. 抓取整个主聊天区域
-                var mainElement = window.parent.document.querySelector('.main') || window.parent.document.body;
+            // 1. 【更新】精准抓取 Streamlit 最新的主内容区（彻底排除侧边栏！）
+            var mainElement = window.parent.document.querySelector('[data-testid="stMain"]');
+            
+            var clonedMain = mainElement.cloneNode(true);
 
-                // 2. 🛡️ 黑科技：克隆整个区域，不在页面上直接修改，保证用户体验
-                var clonedMain = mainElement.cloneNode(true);
+            // 2. 清除大标题
+            var titlesToRemove = clonedMain.querySelectorAll('h1');
+            titlesToRemove.forEach(function(el) { el.remove(); });
+            
+            // 3. 清除所有上传提示框
+            var alertsToRemove = clonedMain.querySelectorAll('div[data-testid="stAlert"]');
+            alertsToRemove.forEach(function(el) { el.remove(); });
 
-                // 3. 🛡️ 定向清除：在克隆体中挖掉无用的“垃圾”
+            // 4. 【更新】清除那些变成 "face" 和 "smart_toy" 乱码的头像！
+            var avatars = clonedMain.querySelectorAll('[data-testid="stChatAvatar"]');
+            avatars.forEach(function(el) { el.remove(); });
 
-                // A. 清除大标题 (h1)
-                var titlesToRemove = clonedMain.querySelectorAll('h1');
-                titlesToRemove.forEach(function(el) { el.remove(); });
-
-                // B. 清除所有文件上传提示、分析提示 (stAlert)
-                var alertsToRemove = clonedMain.querySelectorAll('div[data-testid="stAlert"]');
-                alertsToRemove.forEach(function(el) { el.remove(); });
-
-                // C. 💥 最关键：清除所有【用户】的提问和废话
-                // 根据 Streamlit 的结构，用户消息都在 stChatMessage 容器里，并且含有特定的图标/ID。
-                // 这里的选择器是核心，它只保留 [aria-label="assistant"]（导师回复），移除 [aria-label="user"]（用户提问）
-                var userMessagesToRemove = clonedMain.querySelectorAll('div[data-testid="stChatMessage"]:has(> div > div[aria-label="user"])');
-                if (userMessagesToRemove.length > 0) {
-                     userMessagesToRemove.forEach(function(el) { el.remove(); });
-                } else {
-                    // 如果 :has() 选择器不生效（有些手机），用这个兜底逻辑
-                    var allMessages = clonedMain.querySelectorAll('div[data-testid="stChatMessage"]');
-                    allMessages.forEach(function(msg) {
-                        if (msg.querySelector('div[aria-label="user"]')) {
-                            msg.remove(); // 移除用户输入
-                        }
-                    });
-                }
-
-                // 4. 设置 PDF 排版参数
-                var opt = {
-                  margin:       [0.3, 0.3, 0.3, 0.3], // 上、左、下、右边距 (英寸)
-                  filename:     'WebTutorPlus_纯净笔记.pdf',
-                  image:        { type: 'jpeg', quality: 0.98 },
-                  html2canvas:  { scale: 2, useCORS: true, logging: false }, // 提高清晰度
-                  jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
-                };
-
-                // 5. 调用引擎生成并强制下载（这次只渲染干净的克隆体）
-                html2pdf().set(opt).from(clonedMain).save().then(function() {
-                    // 下载完成后恢复按钮
-                    btn.innerText = '📄 下载纯净笔记 PDF';
-                    btn.style.backgroundColor = '#FF4B4B';
+            // 5. 清除所有【用户】的提问，只留导师的笔记
+            var userMessagesToRemove = clonedMain.querySelectorAll('div[data-testid="stChatMessage"]:has(> div > div[aria-label="user"])');
+            if (userMessagesToRemove.length > 0) {
+                 userMessagesToRemove.forEach(function(el) { el.remove(); });
+            } else {
+                var allMessages = clonedMain.querySelectorAll('div[data-testid="stChatMessage"]');
+                allMessages.forEach(function(msg) {
+                    if (msg.querySelector('div[aria-label="user"]')) {
+                        msg.remove();
+                    }
                 });
             }
+
+            var opt = {
+              margin:       [0.4, 0.4, 0.4, 0.4],
+              filename:     'WebTutor_纯净笔记.pdf',
+              image:        { type: 'jpeg', quality: 0.98 },
+              html2canvas:  { scale: 2, useCORS: true, logging: false },
+              jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+            };
+
+            html2pdf().set(opt).from(clonedMain).save().then(function() {
+                btn.innerText = '📄 下载纯净笔记 PDF';
+                btn.style.backgroundColor = '#FF4B4B';
+            });
+        }
             </script>
             """
         components.html(pdf_button_html, height=80)
