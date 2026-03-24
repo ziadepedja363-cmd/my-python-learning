@@ -16,7 +16,7 @@ try:
     api_key = st.secrets["GEMINI_API_KEY"]
 except:
     # 本地测试防报错备用
-    api_key = "AIza..." 
+    api_key = "AIza..."
 
 if not api_key or api_key.startswith("AIza..."):
     st.error("⚠️ 未检测到有效的 API 密钥，请在 Streamlit 后台的 Secrets 中配置 GEMINI_API_KEY。")
@@ -29,13 +29,15 @@ client = OpenAI(
 )
 
 # 锁定谷歌最新第 3 代闪电模型
-VISION_MODEL = "gemini-2.5-flash"#gemini-3-flash-preview
+VISION_MODEL = "gemini-3-flash-preview"
 
 st.title("🎓 Web Tutor Plus (官方直连极速版)")
+
 
 @st.cache_resource
 def get_current_time():
     return datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+
 
 # ==================== 2. 全面升级的系统提示词 ====================
 system_instruction = f"""
@@ -61,15 +63,17 @@ system_instruction = f"""
 
 # --- 状态初始化 ---
 if "history" not in st.session_state:
-    st.session_state.history = []  
+    st.session_state.history = []
 if "viewing_past" not in st.session_state:
-    st.session_state.viewing_past = None  
+    st.session_state.viewing_past = None
 if "messages" not in st.session_state:
     st.session_state.messages = [{"role": "system", "content": [{"type": "text", "text": system_instruction}]}]
+
 
 # --- 实用辅助函数 ---
 def encode_image(image_file):
     return base64.b64encode(image_file.getvalue()).decode('utf-8')
+
 
 def extract_text_from_file(uploaded_file):
     file_name = uploaded_file.name.lower()
@@ -95,6 +99,7 @@ def extract_text_from_file(uploaded_file):
         return f"读取文件失败: {e}"
     return text
 
+
 def start_new_chat():
     if len(st.session_state.messages) > 1:
         title = "新学习主题"
@@ -109,22 +114,23 @@ def start_new_chat():
                 else:
                     title = m["content"][:12] + "..."
                     break
-        
+
         st.session_state.history.append({
             "title": title,
             "messages": st.session_state.messages.copy()
         })
-    
+
     st.session_state.messages = [{"role": "system", "content": [{"type": "text", "text": system_instruction}]}]
     st.session_state.viewing_past = None
+
 
 # ==================== 3. 侧边栏 UI ====================
 with st.sidebar:
     st.button("➕ 开启新一轮学习", use_container_width=True, type="primary", on_click=start_new_chat)
     st.divider()
-    
+
     st.header("🛠️ 学习资料库")
-    
+
     st.subheader("🖼️ 上传图片理解")
     uploaded_image = st.file_uploader("上传公式、受力图、代码截图", type=["png", "jpg", "jpeg"])
     if uploaded_image is not None:
@@ -135,16 +141,18 @@ with st.sidebar:
                 for msg in st.session_state.messages:
                     if msg["role"] == "user" and isinstance(msg["content"], list):
                         for item in msg["content"]:
-                            if item["type"] == "image_url" and uploaded_image.name in msg.get("metadata", {}).get("file_name", ""):
+                            if item["type"] == "image_url" and uploaded_image.name in msg.get("metadata", {}).get(
+                                    "file_name", ""):
                                 already_uploaded = True
                                 break
                     if already_uploaded: break
-                
+
                 if not already_uploaded:
                     st.session_state.messages.append({
                         "role": "user",
                         "content": [
-                            {"type": "text", "text": f"[用户上传并分析了图片：{uploaded_image.name}，请仔细查看图片内容并将其融入你的引导过程]"},
+                            {"type": "text",
+                             "text": f"[用户上传并分析了图片：{uploaded_image.name}，请仔细查看图片内容并将其融入你的引导过程]"},
                             {
                                 "type": "image_url",
                                 "image_url": {
@@ -157,7 +165,7 @@ with st.sidebar:
                     st.success(f"成功分析：{uploaded_image.name}！")
 
     st.divider()
-    
+
     st.subheader("📄 上传文档资料")
     uploaded_file = st.file_uploader("上传TXT/PDF/Word/PPT", type=["txt", "pdf", "docx", "pptx"])
     if uploaded_file is not None:
@@ -165,10 +173,13 @@ with st.sidebar:
             with st.spinner('正在读取文件内容...'):
                 file_content = extract_text_from_file(uploaded_file)
                 if "读取文件失败" not in file_content and file_content.strip() != "":
-                    if not any(f"读取了资料：{uploaded_file.name}" in m["content"][0]["text"] if isinstance(m.get("content",[]), list) else f"读取了资料：{uploaded_file.name}" in m.get("content","") for m in st.session_state.messages):
+                    if not any(f"读取了资料：{uploaded_file.name}" in m["content"][0]["text"] if isinstance(
+                            m.get("content", []), list) else f"读取了资料：{uploaded_file.name}" in m.get("content", "")
+                               for m in st.session_state.messages):
                         st.session_state.messages.append({
-                            "role": "user", 
-                            "content": [{"type": "text", "text": f"[系统提示：用户刚上传并读取了资料：{uploaded_file.name}。以下是资料内容，请在后续对话中作为参考背景]\n\n{file_content}"}]
+                            "role": "user",
+                            "content": [{"type": "text",
+                                         "text": f"[系统提示：用户刚上传并读取了资料：{uploaded_file.name}。以下是资料内容，请在后续对话中作为参考背景]\n\n{file_content}"}]
                         })
                         st.success(f"成功读取：{uploaded_file.name}！")
                 else:
@@ -192,17 +203,46 @@ with st.sidebar:
             st.rerun()
 
     st.divider()
-    
+
     st.subheader("💾 导出为 PDF")
-    current_display_messages = st.session_state.messages if st.session_state.viewing_past is None else st.session_state.history[st.session_state.viewing_past]["messages"]
-    
+    current_display_messages = st.session_state.messages if st.session_state.viewing_past is None else \
+    st.session_state.history[st.session_state.viewing_past]["messages"]
+
     if len(current_display_messages) > 1:
+        # 引入 html2pdf.js 引擎，绕过移动端打印限制直接生成文件
         pdf_button_html = """
-        <button onclick="window.parent.print()" style="width: 100%; padding: 10px; background-color: #FF4B4B; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.3s;" onmouseover="this.style.backgroundColor='#FF6B6B'" onmouseout="this.style.backgroundColor='#FF4B4B'">
-            📄 一键排版并另存为 PDF
-        </button>
-        """
-        components.html(pdf_button_html, height=50)
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+            <button id="pdf-btn" onclick="generatePDF()" style="width: 100%; padding: 10px; background-color: #FF4B4B; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.3s; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+                📄 一键下载原生 PDF
+            </button>
+            <script>
+            function generatePDF() {
+                var btn = document.getElementById('pdf-btn');
+                // 改变按钮状态，给用户反馈
+                btn.innerText = '⏳ 正在渲染高清 PDF，请稍候...';
+                btn.style.backgroundColor = '#ff8b8b';
+
+                // 越过 iframe，直接抓取 Streamlit 最外层的主聊天区域
+                var element = window.parent.document.querySelector('.main') || window.parent.document.body;
+
+                var opt = {
+                  margin:       0.3,
+                  filename:     'WebTutor_学习记录.pdf',
+                  image:        { type: 'jpeg', quality: 0.98 },
+                  html2canvas:  { scale: 2, useCORS: true },
+                  jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+                };
+
+                // 调用引擎生成并强制下载
+                html2pdf().set(opt).from(element).save().then(function() {
+                    // 下载完成后恢复按钮
+                    btn.innerText = '📄 一键下载原生 PDF';
+                    btn.style.backgroundColor = '#FF4B4B';
+                });
+            }
+            </script>
+            """
+        components.html(pdf_button_html, height=80)
 
 # ==================== 4. 主界面 UI ====================
 display_messages = st.session_state.messages
@@ -217,11 +257,12 @@ for msg in display_messages:
             text_content = ""
             for item in msg["content"]:
                 if item["type"] == "text":
-                    if item["text"].startswith("[系统提示：") or item["text"].startswith("[用户上传并分析了图片："): continue
+                    if item["text"].startswith("[系统提示：") or item["text"].startswith(
+                        "[用户上传并分析了图片："): continue
                     text_content += item["text"]
                 elif item["type"] == "image_url":
                     st.image(item["image_url"]["url"], caption="您上传的图片资料", width=400)
-            
+
             if text_content:
                 st.markdown(text_content)
         else:
@@ -238,7 +279,7 @@ if st.session_state.viewing_past is None:
         with st.chat_message("assistant"):
             message_placeholder = st.empty()
             full_response = ""
-            
+
             try:
                 responses = client.chat.completions.create(
                     model=VISION_MODEL,
@@ -246,7 +287,7 @@ if st.session_state.viewing_past is None:
                     stream=True,
                     temperature=0.7
                 )
-                
+
                 for chunk in responses:
                     # 🛡️ 终极护盾：完美拦截空数据包，防止打字机结尾闪退
                     if hasattr(chunk, 'choices') and chunk.choices and len(chunk.choices) > 0:
@@ -254,10 +295,10 @@ if st.session_state.viewing_past is None:
                         if content is not None:
                             full_response += content
                             message_placeholder.markdown(full_response + "▌")
-                            
+
             except Exception as e:
                 st.error(f"请求出错 (请检查密钥或网络): {e}")
-                
+
             message_placeholder.markdown(full_response)
             st.session_state.messages.append({"role": "assistant", "content": full_response})
 
