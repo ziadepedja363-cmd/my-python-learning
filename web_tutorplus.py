@@ -27,7 +27,8 @@ if not api_key or api_key.startswith("AIza") or api_key.startswith("sk-..."):
 client = OpenAI(
     api_key=api_key,
     # 👇 请把下面这行网址，换回你原来在柏拉图平台复制的那个接口地址（通常以 /v1 结尾）
-    base_url="https://api.你的柏拉图地址.com/v1"
+    # 绝对不能有中文，结尾必须是 /v1，且必须有引号！
+    base_url="https://api.bltcy.ai/v1"
 )
 
 # 🧠 切换模型：你可以用中转站里的 gemini-1.5-pro，或者直接上国内看图最强王者 qwen-vl-max
