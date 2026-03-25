@@ -279,7 +279,7 @@ with st.sidebar:
 
         if has_content:
             st.download_button(
-                label="📥 零报错：下载离线排版笔记 (HTML版)",
+                label="📥下载离线排版笔记 (HTML版)",
                 data=html_content,
                 file_name="WebTutor_核心笔记.html",
                 mime="text/html",
