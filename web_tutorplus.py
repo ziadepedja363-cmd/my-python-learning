@@ -32,8 +32,8 @@ client = OpenAI(
 )
 
 # 🧠 切换模型：你可以用中转站里的 gemini-1.5-pro，或者直接上国内看图最强王者 qwen-vl-max
-VISION_MODEL = "gemini-1.5-pro"
-# VISION_MODEL = "qwen-vl-max"  # 强烈建议测试一下这个，国内物理/数学看图极强
+VISION_MODEL = "qwen-vl-max"
+#   # 强烈建议测试一下这个，国内物理/数学看图极强 VISION_MODEL = "gemini-1.5-pro"
 
 st.title("🎓 Web Tutor Plus")
 
