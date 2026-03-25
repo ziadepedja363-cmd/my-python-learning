@@ -1,5 +1,5 @@
 import os
-import json  # 👈 新增这行：用于读取和保存存档文件
+import json  
 import base64
 import datetime
 import streamlit as st
@@ -12,7 +12,6 @@ import streamlit.components.v1 as components
 # 设置页面宽屏显示
 st.set_page_config(page_title="Web Tutor Plus", page_icon="🎓", layout="wide")
 
-# ==================== 1. 官方原生直连配置 ====================
 # ==================== 1. 中转站专属配置 ====================
 try:
     # 注意：这里我又改回了 OPENAI_API_KEY，记得去后台换成你中转站的钥匙
@@ -27,21 +26,18 @@ if not api_key or api_key.startswith("AIza") or api_key.startswith("sk-..."):
 # 🚀 重新连回柏拉图中转站
 client = OpenAI(
     api_key=api_key,
-    # 👇 请把下面这行网址，换回你原来在柏拉图平台复制的那个接口地址（通常以 /v1 结尾）
-    # 绝对不能有中文，结尾必须是 /v1，且必须有引号！
     base_url="https://api.bltcy.ai/v1"
 )
 
 # 🧠 切换模型：你可以用中转站里的 gemini-1.5-pro，或者直接上国内看图最强王者 qwen-vl-max
 VISION_MODEL = "qwen-vl-max"
-#   # 强烈建议测试一下这个，国内物理/数学看图极强 VISION_MODEL = "gemini-1.5-pro"
 
 st.title("🎓 Web Tutor Plus")
-
 
 @st.cache_resource
 def get_current_time():
     return datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+
 # ==================== 新增：自动存档与读档引擎 ====================
 BACKUP_FILE = "chat_backup.json"
 
@@ -86,21 +82,17 @@ if "history" not in st.session_state:
     st.session_state.history = []
 if "viewing_past" not in st.session_state:
     st.session_state.viewing_past = None
-if "messages" not in st.session_state:
-    # --- 找到下面这行代码 ---
-    if "messages" not in st.session_state:
-        # 把原来这里面的一行代码删掉，替换成下面这块带读档判断的：
-        backup = load_backup()
-        if backup:
-            st.session_state.messages = backup
-        else:
-            st.session_state.messages = [{"role": "system", "content": [{"type": "text", "text": system_instruction}]}]
 
+if "messages" not in st.session_state:
+    backup = load_backup()
+    if backup:
+        st.session_state.messages = backup
+    else:
+        st.session_state.messages = [{"role": "system", "content": [{"type": "text", "text": system_instruction}]}]
 
 # --- 实用辅助函数 ---
 def encode_image(image_file):
     return base64.b64encode(image_file.getvalue()).decode('utf-8')
-
 
 def extract_text_from_file(uploaded_file):
     file_name = uploaded_file.name.lower()
@@ -126,7 +118,6 @@ def extract_text_from_file(uploaded_file):
         return f"读取文件失败: {e}"
     return text
 
-
 def start_new_chat():
     if len(st.session_state.messages) > 1:
         title = "新学习主题"
@@ -149,7 +140,7 @@ def start_new_chat():
 
     st.session_state.messages = [{"role": "system", "content": [{"type": "text", "text": system_instruction}]}]
     st.session_state.viewing_past = None
-    save_backup(st.session_state.messages)  # 👈 加在这里！(大概是第 145 行)
+    save_backup(st.session_state.messages)
 
 
 # ==================== 3. 侧边栏 UI ====================
@@ -163,14 +154,13 @@ with st.sidebar:
     uploaded_image = st.file_uploader("上传公式、受力图、代码截图", type=["png", "jpg", "jpeg"])
     if uploaded_image is not None:
         if st.session_state.viewing_past is None:
-            with st.spinner('正在使用 Gemini 3 Flash 分析图片...'):
+            with st.spinner('正在使用视觉模型分析图片...'):
                 base64_image = encode_image(uploaded_image)
                 already_uploaded = False
                 for msg in st.session_state.messages:
                     if msg["role"] == "user" and isinstance(msg["content"], list):
                         for item in msg["content"]:
-                            if item["type"] == "image_url" and uploaded_image.name in msg.get("metadata", {}).get(
-                                    "file_name", ""):
+                            if item["type"] == "image_url" and uploaded_image.name in msg.get("metadata", {}).get("file_name", ""):
                                 already_uploaded = True
                                 break
                     if already_uploaded: break
@@ -179,14 +169,8 @@ with st.sidebar:
                     st.session_state.messages.append({
                         "role": "user",
                         "content": [
-                            {"type": "text",
-                             "text": f"[用户上传并分析了图片：{uploaded_image.name}，请仔细查看图片内容并将其融入你的引导过程]"},
-                            {
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": f"data:image/jpeg;base64,{base64_image}"
-                                },
-                            },
+                            {"type": "text", "text": f"[用户上传并分析了图片：{uploaded_image.name}，请仔细查看图片内容并将其融入你的引导过程]"},
+                            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}},
                         ],
                         "metadata": {"file_name": uploaded_image.name}
                     })
@@ -201,13 +185,10 @@ with st.sidebar:
             with st.spinner('正在读取文件内容...'):
                 file_content = extract_text_from_file(uploaded_file)
                 if "读取文件失败" not in file_content and file_content.strip() != "":
-                    if not any(f"读取了资料：{uploaded_file.name}" in m["content"][0]["text"] if isinstance(
-                            m.get("content", []), list) else f"读取了资料：{uploaded_file.name}" in m.get("content", "")
-                               for m in st.session_state.messages):
+                    if not any(f"读取了资料：{uploaded_file.name}" in m["content"][0]["text"] if isinstance(m.get("content", []), list) else f"读取了资料：{uploaded_file.name}" in m.get("content", "") for m in st.session_state.messages):
                         st.session_state.messages.append({
                             "role": "user",
-                            "content": [{"type": "text",
-                                         "text": f"[系统提示：用户刚上传并读取了资料：{uploaded_file.name}。以下是资料内容，请在后续对话中作为参考背景]\n\n{file_content}"}]
+                            "content": [{"type": "text", "text": f"[系统提示：用户刚上传并读取了资料：{uploaded_file.name}。以下是资料内容，请在后续对话中作为参考背景]\n\n{file_content}"}]
                         })
                         st.success(f"成功读取：{uploaded_file.name}！")
                 else:
@@ -233,11 +214,10 @@ with st.sidebar:
     st.divider()
 
     st.subheader("💾 导出为 PDF")
-    current_display_messages = st.session_state.messages if st.session_state.viewing_past is None else \
-    st.session_state.history[st.session_state.viewing_past]["messages"]
+    current_display_messages = st.session_state.messages if st.session_state.viewing_past is None else st.session_state.history[st.session_state.viewing_past]["messages"]
 
     if len(current_display_messages) > 1:
-        # html2pdf.js 引擎，带定向清除无用元素的高级逻辑
+        # 💥 这里已经替换为最新的【多重防爆版】PDF引擎
         pdf_button_html = """
             <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
@@ -247,53 +227,64 @@ with st.sidebar:
 
             <script>
             function generatePDF() {
-            var btn = document.getElementById('pdf-btn');
-            btn.innerText = '⏳ 正在排版纯净笔记，请稍候...';
-            btn.style.backgroundColor = '#ff8b8b';
+                var btn = document.getElementById('pdf-btn');
+                btn.innerText = '⏳ 正在排版纯净笔记...';
+                btn.style.backgroundColor = '#ff8b8b';
 
-            // 1. 【更新】精准抓取 Streamlit 最新的主内容区（彻底排除侧边栏！）
-            var mainElement = window.parent.document.querySelector('[data-testid="stMain"]');
-            
-            var clonedMain = mainElement.cloneNode(true);
+                try {
+                    // 1. 防弹抓取
+                    var mainElement = window.parent.document.querySelector('[data-testid="stMain"]') || 
+                                      window.parent.document.querySelector('.main') || 
+                                      window.parent.document.body;
+                    
+                    if (!mainElement) throw new Error("找不到主界面元素");
+                    var clonedMain = mainElement.cloneNode(true);
 
-            // 2. 清除大标题
-            var titlesToRemove = clonedMain.querySelectorAll('h1');
-            titlesToRemove.forEach(function(el) { el.remove(); });
-            
-            // 3. 清除所有上传提示框
-            var alertsToRemove = clonedMain.querySelectorAll('div[data-testid="stAlert"]');
-            alertsToRemove.forEach(function(el) { el.remove(); });
+                    // 2. 安全清除
+                    var safeRemove = function(selector) {
+                        var els = clonedMain.querySelectorAll(selector);
+                        els.forEach(function(e) { e.remove(); });
+                    };
 
-            // 4. 【更新】清除那些变成 "face" 和 "smart_toy" 乱码的头像！
-            var avatars = clonedMain.querySelectorAll('[data-testid="stChatAvatar"]');
-            avatars.forEach(function(el) { el.remove(); });
+                    safeRemove('h1'); 
+                    safeRemove('div[data-testid="stAlert"]'); 
+                    safeRemove('[data-testid="stChatAvatar"]'); 
 
-            // 5. 清除所有【用户】的提问，只留导师的笔记
-            var userMessagesToRemove = clonedMain.querySelectorAll('div[data-testid="stChatMessage"]:has(> div > div[aria-label="user"])');
-            if (userMessagesToRemove.length > 0) {
-                 userMessagesToRemove.forEach(function(el) { el.remove(); });
-            } else {
-                var allMessages = clonedMain.querySelectorAll('div[data-testid="stChatMessage"]');
-                allMessages.forEach(function(msg) {
-                    if (msg.querySelector('div[aria-label="user"]')) {
-                        msg.remove();
-                    }
-                });
+                    try {
+                        var allMessages = clonedMain.querySelectorAll('div[data-testid="stChatMessage"]');
+                        allMessages.forEach(function(msg) {
+                            if (msg.querySelector('div[aria-label="user"]')) {
+                                msg.remove();
+                            }
+                        });
+                    } catch (e) { console.log("清理用户消息跳过"); }
+
+                    // 3. PDF引擎配置
+                    var opt = {
+                      margin:       [0.4, 0.4, 0.4, 0.4],
+                      filename:     'WebTutor_学习笔记.pdf',
+                      image:        { type: 'jpeg', quality: 0.95 },
+                      html2canvas:  { scale: 2, useCORS: true, logging: false },
+                      jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+                    };
+
+                    // 4. 强制输出
+                    html2pdf().set(opt).from(clonedMain).save().then(function() {
+                        btn.innerText = '📄 下载纯净笔记 PDF';
+                        btn.style.backgroundColor = '#FF4B4B';
+                    }).catch(function(err) {
+                        console.error("PDF生成失败:", err);
+                        btn.innerText = '❌ 导出错误，点击重试';
+                        btn.style.backgroundColor = '#FF4B4B';
+                    });
+                    
+                } catch (error) {
+                    console.error("DOM处理失败:", error);
+                    btn.innerText = '⚠️ 页面提取失败';
+                    btn.style.backgroundColor = '#FF4B4B';
+                    setTimeout(() => { btn.innerText = '📄 下载纯净笔记 PDF'; }, 3000);
+                }
             }
-
-            var opt = {
-              margin:       [0.4, 0.4, 0.4, 0.4],
-              filename:     'WebTutor_纯净笔记.pdf',
-              image:        { type: 'jpeg', quality: 0.98 },
-              html2canvas:  { scale: 2, useCORS: true, logging: false },
-              jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
-            };
-
-            html2pdf().set(opt).from(clonedMain).save().then(function() {
-                btn.innerText = '📄 下载纯净笔记 PDF';
-                btn.style.backgroundColor = '#FF4B4B';
-            });
-        }
             </script>
             """
         components.html(pdf_button_html, height=80)
@@ -311,8 +302,7 @@ for msg in display_messages:
             text_content = ""
             for item in msg["content"]:
                 if item["type"] == "text":
-                    if item["text"].startswith("[系统提示：") or item["text"].startswith(
-                        "[用户上传并分析了图片："): continue
+                    if item["text"].startswith("[系统提示：") or item["text"].startswith("[用户上传并分析了图片："): continue
                     text_content += item["text"]
                 elif item["type"] == "image_url":
                     st.image(item["image_url"]["url"], caption="您上传的图片资料", width=400)
@@ -329,7 +319,7 @@ if st.session_state.viewing_past is None:
         with st.chat_message("user"):
             st.markdown(prompt)
         st.session_state.messages.append({"role": "user", "content": prompt})
-        save_backup(st.session_state.messages)  # 👈 新增：用户发完，存一次档
+        save_backup(st.session_state.messages) 
 
         with st.chat_message("assistant"):
             message_placeholder = st.empty()
@@ -344,7 +334,6 @@ if st.session_state.viewing_past is None:
                 )
 
                 for chunk in responses:
-                    # 🛡️ 终极护盾：完美拦截空数据包，防止打字机结尾闪退
                     if hasattr(chunk, 'choices') and chunk.choices and len(chunk.choices) > 0:
                         content = getattr(chunk.choices[0].delta, 'content', None)
                         if content is not None:
@@ -356,7 +345,7 @@ if st.session_state.viewing_past is None:
 
             message_placeholder.markdown(full_response)
             st.session_state.messages.append({"role": "assistant", "content": full_response})
-            save_backup(st.session_state.messages)  # 👈 新增：导师回完，再存一次档
+            save_backup(st.session_state.messages) 
 
 else:
     st.warning("🔒 历史记录属于只读模式。若要继续学习，请点击左侧栏的【🔙 返回当前学习进度】或【➕ 开启新一轮学习】。")
