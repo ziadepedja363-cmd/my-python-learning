@@ -1,4 +1,5 @@
 import os
+import json  # 👈 新增这行：用于读取和保存存档文件
 import base64
 import datetime
 import streamlit as st
@@ -41,7 +42,22 @@ st.title("🎓 Web Tutor Plus")
 @st.cache_resource
 def get_current_time():
     return datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+# ==================== 新增：自动存档与读档引擎 ====================
+BACKUP_FILE = "chat_backup.json"
 
+def load_backup():
+    if os.path.exists(BACKUP_FILE):
+        try:
+            with open(BACKUP_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except:
+            return None
+    return None
+
+def save_backup(messages):
+    with open(BACKUP_FILE, "w", encoding="utf-8") as f:
+        json.dump(messages, f, ensure_ascii=False, indent=2)
+# ==================================================================
 
 # ==================== 2. 全面升级的系统提示词 ====================
 system_instruction = f"""
@@ -71,7 +87,14 @@ if "history" not in st.session_state:
 if "viewing_past" not in st.session_state:
     st.session_state.viewing_past = None
 if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "system", "content": [{"type": "text", "text": system_instruction}]}]
+    # --- 找到下面这行代码 ---
+    if "messages" not in st.session_state:
+        # 把原来这里面的一行代码删掉，替换成下面这块带读档判断的：
+        backup = load_backup()
+        if backup:
+            st.session_state.messages = backup
+        else:
+            st.session_state.messages = [{"role": "system", "content": [{"type": "text", "text": system_instruction}]}]
 
 
 # --- 实用辅助函数 ---
@@ -126,6 +149,7 @@ def start_new_chat():
 
     st.session_state.messages = [{"role": "system", "content": [{"type": "text", "text": system_instruction}]}]
     st.session_state.viewing_past = None
+    save_backup(st.session_state.messages)  # 👈 加在这里！(大概是第 145 行)
 
 
 # ==================== 3. 侧边栏 UI ====================
@@ -305,6 +329,7 @@ if st.session_state.viewing_past is None:
         with st.chat_message("user"):
             st.markdown(prompt)
         st.session_state.messages.append({"role": "user", "content": prompt})
+        save_backup(st.session_state.messages)  # 👈 新增：用户发完，存一次档
 
         with st.chat_message("assistant"):
             message_placeholder = st.empty()
@@ -331,6 +356,7 @@ if st.session_state.viewing_past is None:
 
             message_placeholder.markdown(full_response)
             st.session_state.messages.append({"role": "assistant", "content": full_response})
+            save_backup(st.session_state.messages)  # 👈 新增：导师回完，再存一次档
 
 else:
     st.warning("🔒 历史记录属于只读模式。若要继续学习，请点击左侧栏的【🔙 返回当前学习进度】或【➕ 开启新一轮学习】。")
