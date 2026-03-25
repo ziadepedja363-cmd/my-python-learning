@@ -1,5 +1,6 @@
 import os
 import json
+import markdown
 import base64
 import datetime
 import streamlit as st
@@ -232,89 +233,60 @@ with st.sidebar:
     st.session_state.history[st.session_state.viewing_past]["messages"]
 
     if len(current_display_messages) > 1:
-        # 💥 这里已经替换为最新的【多重防爆版】PDF引擎
-        pdf_button_html = """
-                    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+        # 💥 降维打击：放弃 JS 前端截图，直接用 Python 后端生成原生排版的 HTML 离线文件
+        html_content = """
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <title>Web Tutor Plus 核心笔记</title>
+                <style>
+                    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 40px 20px; background-color: #f9f9f9; }
+                    .header { text-align: center; margin-bottom: 40px; border-bottom: 2px solid #FF4B4B; padding-bottom: 20px; }
+                    .header h1 { color: #2c3e50; margin: 0; }
+                    .note-block { background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 30px; border-left: 5px solid #FF4B4B; }
+                    pre { background: #f4f4f4; padding: 15px; border-radius: 8px; overflow-x: auto; }
+                    code { font-family: Consolas, monospace; color: #d63384; }
+                    img { max-width: 100%; border-radius: 8px; margin: 10px 0; }
+                    .footer { text-align: center; color: #888; font-size: 14px; margin-top: 50px; }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <h1>🎓 Web Tutor Plus 核心笔记</h1>
+                    <p>自动提纯生成，仅保留导师核心解析</p>
+                </div>
+            """
 
-                    <button id="pdf-btn" onclick="generatePDF()" style="width: 100%; padding: 10px; background-color: #FF4B4B; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.3s; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
-                        📄 下载纯净笔记 PDF
-                    </button>
+        # 遍历历史，只提取导师的纯净知识点
+        has_content = False
+        for msg in current_display_messages:
+            if msg["role"] == "assistant":
+                has_content = True
+                import markdown
 
-                    <script>
-                    function generatePDF() {
-                        var btn = document.getElementById('pdf-btn');
-                        btn.innerText = '⏳ 正在排版纯净笔记...';
-                        btn.style.backgroundColor = '#ff8b8b';
+                # 将 markdown 语法转换为漂亮的网页元素
+                html_text = markdown.markdown(msg["content"], extensions=['fenced_code', 'tables'])
+                html_content += f'<div class="note-block">{html_text}</div>'
 
-                        try {
-                            // 1. 降维打击：不截网页了！自己在内存里建一张“干净的白纸”
-                            var printContainer = document.createElement('div');
-                            printContainer.style.padding = '20px';
-                            printContainer.style.fontFamily = 'sans-serif';
+        html_content += f"""
+                <div class="footer">
+                    <p>💡 提示：按 <b>Ctrl + P</b> (Windows) 或 <b>Cmd + P</b> (Mac) 即可直接将此页面完美保存为原生 PDF。</p>
+                </div>
+            </body>
+            </html>
+            """
 
-                            // 加个漂亮的标题
-                            var title = document.createElement('h2');
-                            title.innerText = '🎓 Web Tutor Plus 学习笔记';
-                            title.style.borderBottom = '2px solid #ddd';
-                            title.style.paddingBottom = '10px';
-                            title.style.marginBottom = '20px';
-                            printContainer.appendChild(title);
-
-                            // 2. 去网页里把“聊天气泡”一个个抠出来，贴到白纸上
-                            var messages = window.parent.document.querySelectorAll('div[data-testid="stChatMessage"]');
-                            var hasContent = false;
-
-                            messages.forEach(function(msg) {
-                                // 过滤掉用户的废话，只保留导师的知识点
-                                if (!msg.querySelector('div[aria-label="user"]')) {
-                                    var clonedMsg = msg.cloneNode(true);
-
-                                    // 顺手把乱码头像删掉
-                                    var avatar = clonedMsg.querySelector('[data-testid="stChatAvatar"]');
-                                    if(avatar) avatar.remove();
-
-                                    // 极其关键：解除原有气泡的复杂排版限制，让它在白纸上自然铺开
-                                    clonedMsg.style.backgroundColor = 'transparent';
-                                    clonedMsg.style.width = '100%';
-                                    clonedMsg.style.maxWidth = '100%';
-
-                                    printContainer.appendChild(clonedMsg);
-                                    hasContent = true;
-                                }
-                            });
-
-                            if (!hasContent) {
-                                throw new Error("当前没有导师的解答记录");
-                            }
-
-                            // 3. 直接对着这张完美排版的“白纸”生成 PDF
-                            var opt = {
-                              margin:       [0.5, 0.5, 0.5, 0.5],
-                              filename:     'WebTutor_核心笔记.pdf',
-                              image:        { type: 'jpeg', quality: 0.98 },
-                              html2canvas:  { scale: 2, useCORS: true, logging: false },
-                              jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
-                            };
-
-                            html2pdf().set(opt).from(printContainer).save().then(function() {
-                                btn.innerText = '📄 下载纯净笔记 PDF';
-                                btn.style.backgroundColor = '#FF4B4B';
-                            }).catch(function(err) {
-                                console.error("PDF生成失败:", err);
-                                btn.innerText = '❌ 导出错误，点击重试';
-                                btn.style.backgroundColor = '#FF4B4B';
-                            });
-
-                        } catch (error) {
-                            console.error("处理失败:", error);
-                            btn.innerText = '⚠️ ' + error.message;
-                            btn.style.backgroundColor = '#FF4B4B';
-                            setTimeout(() => { btn.innerText = '📄 下载纯净笔记 PDF'; }, 3000);
-                        }
-                    }
-                    </script>
-                    """
-        components.html(pdf_button_html, height=80)
+        if has_content:
+            st.download_button(
+                label="📥 零报错：下载离线排版笔记 (HTML版)",
+                data=html_content,
+                file_name="WebTutor_核心笔记.html",
+                mime="text/html",
+                use_container_width=True
+            )
+        else:
+            st.button("暂无导师解答记录", disabled=True, use_container_width=True)
 
 # ==================== 4. 主界面 UI ====================
 display_messages = st.session_state.messages
