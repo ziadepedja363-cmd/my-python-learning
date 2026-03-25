@@ -9,29 +9,32 @@ import pptx
 import streamlit.components.v1 as components
 
 # 设置页面宽屏显示
-st.set_page_config(page_title="Web Tutor Plus (官方直连版)", page_icon="🎓", layout="wide")
+st.set_page_config(page_title="Web Tutor Plus", page_icon="🎓", layout="wide")
 
 # ==================== 1. 官方原生直连配置 ====================
+# ==================== 1. 中转站专属配置 ====================
 try:
-    api_key = st.secrets["GEMINI_API_KEY"]
+    # 注意：这里我又改回了 OPENAI_API_KEY，记得去后台换成你中转站的钥匙
+    api_key = st.secrets["OPENAI_API_KEY"]
 except:
-    # 本地测试防报错备用
-    api_key = "AIza..."
+    api_key = "sk-..."
 
-if not api_key or api_key.startswith("AIza..."):
-    st.error("⚠️ 未检测到有效的 API 密钥，请在 Streamlit 后台的 Secrets 中配置 GEMINI_API_KEY。")
+if not api_key or api_key.startswith("AIza") or api_key.startswith("sk-..."):
+    st.error("⚠️ 请在 Streamlit 后台配置中转站的 OPENAI_API_KEY。")
     st.stop()
 
-# 🚀 使用 OpenAI SDK 完美兼容调用 Google 官方接口！
+# 🚀 重新连回柏拉图中转站
 client = OpenAI(
     api_key=api_key,
-    base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
+    # 👇 请把下面这行网址，换回你原来在柏拉图平台复制的那个接口地址（通常以 /v1 结尾）
+    base_url="https://api.你的柏拉图地址.com/v1"
 )
 
-# 锁定谷歌最新第 3 代闪电模型
-VISION_MODEL = "gemini-2.5-flash"
+# 🧠 切换模型：你可以用中转站里的 gemini-1.5-pro，或者直接上国内看图最强王者 qwen-vl-max
+VISION_MODEL = "gemini-1.5-pro"
+# VISION_MODEL = "qwen-vl-max"  # 强烈建议测试一下这个，国内物理/数学看图极强
 
-st.title("🎓 Web Tutor Plus (官方直连极速版)")
+st.title("🎓 Web Tutor Plus")
 
 
 @st.cache_resource
