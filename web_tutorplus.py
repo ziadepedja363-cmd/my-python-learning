@@ -241,75 +241,101 @@ with st.sidebar:
             </button>
 
             <script>
-        function generatePDF() {
-            var btn = document.getElementById('pdf-btn');
-            btn.innerText = '⏳ 正在排版纯净笔记...';
-            btn.style.backgroundColor = '#ff8b8b';
-
-            try {
-                // 1. 【防弹抓取】获取包含所有对话的最里层容器，避开外层滚动条的干扰
-                var mainElement = window.parent.document.querySelector('[data-testid="stMainBlockContainer"]') || 
-                                  window.parent.document.querySelector('.main') || 
-                                  window.parent.document.body;
-                
-                if (!mainElement) throw new Error("找不到主界面元素");
-                var clonedMain = mainElement.cloneNode(true);
-
-                // 💥【终极黑魔法】专治白屏：强制展开所有隐藏/滚动区域，铺平内容
-                clonedMain.style.height = 'auto';
-                clonedMain.style.overflow = 'visible';
-                clonedMain.style.position = 'relative';
-
-                // 2. 安全清除垃圾元素
-                var safeRemove = function(selector) {
-                    var els = clonedMain.querySelectorAll(selector);
-                    els.forEach(function(e) { e.remove(); });
-                };
-
-                safeRemove('h1'); 
-                safeRemove('div[data-testid="stAlert"]'); 
-                safeRemove('[data-testid="stChatAvatar"]'); 
+            function generatePDF() {
+                var btn = document.getElementById('pdf-btn');
+                btn.innerText = '⏳ 正在重构物理排版...';
+                btn.style.backgroundColor = '#ff8b8b';
 
                 try {
-                    var allMessages = clonedMain.querySelectorAll('div[data-testid="stChatMessage"]');
-                    allMessages.forEach(function(msg) {
-                        if (msg.querySelector('div[aria-label="user"]')) {
-                            msg.remove();
-                        }
+                    var mainElement = window.parent.document.querySelector('[data-testid="stMainBlockContainer"]') || 
+                                      window.parent.document.querySelector('.main') || 
+                                      window.parent.document.body;
+                    
+                    if (!mainElement) throw new Error("找不到主界面元素");
+                    
+                    // 1. 克隆节点
+                    var clonedMain = mainElement.cloneNode(true);
+
+                    // 💥【终极杀招】：将克隆体强行挂载到网页最底层！
+                    // 解决 Streamlit 后台高度塌陷导致全是白纸的 Bug
+                    clonedMain.style.position = 'absolute';
+                    clonedMain.style.top = '0';
+                    clonedMain.style.left = '0';
+                    clonedMain.style.width = '800px'; // 强行拉伸到 A4 比例宽度
+                    clonedMain.style.height = 'auto';
+                    clonedMain.style.overflow = 'visible';
+                    clonedMain.style.zIndex = '-9999'; // 藏在屏幕最下面，不影响你
+                    clonedMain.style.backgroundColor = '#ffffff'; // 💥 强行白底
+                    clonedMain.style.color = '#000000'; // 💥 强行黑字（专治夜间模式白纸白字）
+                    clonedMain.style.padding = '20px';
+
+                    // 💥 拆掉所有子元素的“防溢出”护盾
+                    var allNodes = clonedMain.querySelectorAll('*');
+                    for (var i = 0; i < allNodes.length; i++) {
+                        allNodes[i].style.overflow = 'visible';
+                    }
+
+                    // 💥 关键动作：塞入真正的网页 DOM 树中，强迫浏览器计算它的真实物理高度！
+                    window.parent.document.body.appendChild(clonedMain);
+
+                    // 2. 清理垃圾元素
+                    var safeRemove = function(selector) {
+                        var els = clonedMain.querySelectorAll(selector);
+                        els.forEach(function(e) { e.remove(); });
+                    };
+
+                    safeRemove('h1'); 
+                    safeRemove('div[data-testid="stAlert"]'); 
+                    safeRemove('[data-testid="stChatAvatar"]'); 
+
+                    try {
+                        var allMessages = clonedMain.querySelectorAll('div[data-testid="stChatMessage"]');
+                        allMessages.forEach(function(msg) {
+                            if (msg.querySelector('div[aria-label="user"]')) {
+                                msg.remove(); // 删掉用户废话
+                            } else {
+                                // 保证导师回复框也是绝对的白底黑字
+                                msg.style.backgroundColor = '#ffffff';
+                                msg.style.color = '#000000';
+                            }
+                        });
+                    } catch (e) { console.log("清理用户消息跳过"); }
+
+                    // 3. 引擎配置
+                    var opt = {
+                      margin:       [0.4, 0.4, 0.4, 0.4],
+                      filename:     'WebTutor_学习笔记.pdf',
+                      image:        { type: 'jpeg', quality: 0.98 },
+                      html2canvas:  { 
+                          scale: 2, 
+                          useCORS: true, 
+                          logging: false,
+                          scrollY: 0,
+                          windowWidth: 800
+                      },
+                      jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+                    };
+
+                    // 4. 生成并【销毁】克隆体
+                    html2pdf().set(opt).from(clonedMain).save().then(function() {
+                        window.parent.document.body.removeChild(clonedMain); // 拍完照立刻销毁
+                        btn.innerText = '📄 下载纯净笔记 PDF';
+                        btn.style.backgroundColor = '#FF4B4B';
+                    }).catch(function(err) {
+                        window.parent.document.body.removeChild(clonedMain); // 报错也要销毁清理战场
+                        console.error("PDF生成失败:", err);
+                        btn.innerText = '❌ 导出错误，点击重试';
+                        btn.style.backgroundColor = '#FF4B4B';
                     });
-                } catch (e) { console.log("清理跳过"); }
-
-                // 3. 💥 PDF引擎防白屏配置
-                var opt = {
-                  margin:       [0.4, 0.4, 0.4, 0.4],
-                  filename:     'WebTutor_学习笔记.pdf',
-                  image:        { type: 'jpeg', quality: 0.98 },
-                  html2canvas:  { 
-                      scale: 2, 
-                      useCORS: true, 
-                      logging: false,
-                      scrollY: 0,  // 强制视角回到最顶部，防止内容向下偏移
-                      windowHeight: mainElement.scrollHeight // 强制引擎读取网页的真实物理总高度
-                  },
-                  jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
-                };
-
-                // 4. 强制输出
-                html2pdf().set(opt).from(clonedMain).save().then(function() {
-                    btn.innerText = '📄 下载纯净笔记 PDF';
+                    
+                } catch (error) {
+                    console.error("DOM处理失败:", error);
+                    btn.innerText = '⚠️ 页面提取失败';
                     btn.style.backgroundColor = '#FF4B4B';
-                }).catch(function(err) {
-                    btn.innerText = '❌ 导出错误，点击重试';
-                    btn.style.backgroundColor = '#FF4B4B';
-                });
-                
-            } catch (error) {
-                btn.innerText = '⚠️ 页面提取失败';
-                btn.style.backgroundColor = '#FF4B4B';
-                setTimeout(() => { btn.innerText = '📄 下载纯净笔记 PDF'; }, 3000);
+                    setTimeout(() => { btn.innerText = '📄 下载纯净笔记 PDF'; }, 3000);
+                }
             }
-        }
-        </script>
+            </script>
             """
         components.html(pdf_button_html, height=80)
 
